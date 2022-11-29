@@ -3,9 +3,7 @@
 #include "Ledge.h"
 #include "Area.h"
 #include "Host.h"
-#include "../ToyUtils.h"
 #include <random>
-#include <iostream>
 
 using namespace Petz;
 
@@ -35,20 +33,14 @@ void Sprite_Post_B1::AddInHostExtraCode(Host& host)
 	auto area = dynamic_cast<Area*>(&host);
 	if (area != nullptr) {
 		XTRect<> rect{ 0, 0, 0, 0 };
-		//areaLedge = new Ledge(rect, false, true);
 		scratchLedge = new Ledge(rect, false, false);
 		SetLedge(scratchLedge);
-		//area->AddLedge(areaLedge);
 	}
 }
 
 void Sprite_Post_B1::RemInHostExtraCode(Host& host, const char* str, const char* str2)
 {
 	Sprite_Post::RemInHostExtraCode(host, str, str2);
-	/*auto area = dynamic_cast<Area*>(&host);
-	if (area != nullptr && areaLedge != nullptr) {
-		area->RemoveLedge(areaLedge);
-	}*/
 }
 
 void Sprite_Post_B1::RunUpdate()
@@ -57,14 +49,7 @@ void Sprite_Post_B1::RunUpdate()
 	if (scratchLedge != nullptr) {
 		const auto& bounds = GetDrawRect();
 		auto ledgeBounds = ComputeLedgeRect(bounds);
-		//areaLedge->SetBounds(ledgeBounds);
 		scratchLedge->SetBounds(ledgeBounds);
-		/*if (areaLedge->beingUsed != 0) {
-			SetGrabable(false);
-		}
-		else {
-			SetGrabable(true);
-		}*/
 	}
 }
 
@@ -75,8 +60,4 @@ XTRect<> Sprite_Post_B1::ComputeLedgeRect(XTRect<> rec)
 	rec.x1 += 20;
 	rec.x2 -= 20;
 	return rec;
-}
-
-Sprite_Post_B1::~Sprite_Post_B1()
-{
 }
