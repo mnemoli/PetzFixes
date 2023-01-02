@@ -83,7 +83,7 @@ XTVector3<long, long> averagevec(XTVector3<long, long>& one, XTVector3<long, lon
 namespace patch {
 	const float TWOPI = 2 * 3.14159265358979323846;
 	const double SINCOSVAL = 0.02454369260617026;
-	void DrawEyeball(XBallz* xballz, XDrawPort* drawport, BallFrameEx* ballframeex, BallState const* ballstate, int ballno, CircleRenderBlock const& circlerenderblock, int ballsize, XTPoint<int> const& center)
+	void DrawEyeball(XBallz* xballz, XDrawPort* drawport, BallFrameEx const* ballframeex, BallState const* ballstate, int ballno, CircleRenderBlock const& circlerenderblock, int ballsize, XTPoint<int> const& center)
 	{
 		auto lnz = xballz->linez;
 		int irisno;
@@ -316,6 +316,10 @@ namespace patch {
 	}
 }
 
+void setuparray(bool* ar, unsigned int size) {
+	memset(ar, 0, size);
+}
+
 void XBallz::DisplayBallzFrame(XDrawPort* drawport, XTRect<> const* bounds, BallState* ballstate) {
 	auto xballz = this;
 	BallFrameEx* coords = (BallFrameEx*)xballz->GetCartesianCoordinates(ballstate);
@@ -325,7 +329,8 @@ void XBallz::DisplayBallzFrame(XDrawPort* drawport, XTRect<> const* bounds, Ball
 	auto lnz = xballz->linez;
 	auto boundspoint = XTPoint<int>{};
 	auto circlerenderblock = CircleRenderBlock(lnz->rendermode);
-	bool pfar[512]{ 0 };
+	bool linerenderedarray[512]{ 0 };
+	setuparray(xballz->renderedarray, 512);
 	if (bounds->x1 < bounds->x2 && bounds->y1 < bounds->y2) {
 		auto localdrawport = XDrawPort();
 		if (ballstate->doclip) {
@@ -337,20 +342,19 @@ void XBallz::DisplayBallzFrame(XDrawPort* drawport, XTRect<> const* bounds, Ball
 		}
 		boundspoint.x = bounds->x1 - coords->x1;
 		boundspoint.y = bounds->y1 - coords->y1;
-		auto zorderflag = &xballz->zorderflag;
-		if (*zorderflag == false) {
+		if (xballz->zorderflag == false) {
 			xballz->ZOrder(coords, 4);
 		}
 		else {
 			xballz->ZOrder(coords, 0);
-			*zorderflag = false;
+			xballz->zorderflag = false;
 		}
 		auto total = xballz->addballcount + xballz->numballz;
 		bool clipped = false;
 		bool drewstacked = false;
 		if (total > 0) {
 			auto ballnoptr = xballz->ballnoarray;
-			
+
 			for (int cur = 0; cur < total; cur++) {
 				int theballno = ballnoptr[cur];
 				//if (some body area check here - didn't implement it yet)
@@ -366,84 +370,85 @@ void XBallz::DisplayBallzFrame(XDrawPort* drawport, XTRect<> const* bounds, Ball
 						othersprite->DrawStacked(drawport, (EStackDraw)2);
 					}
 				}
-				bool isEyeball = false;
-				// other unknown checks here
-				if (theballno == lnz->eye1ballno || theballno == lnz->eye2ballno) {
-					isEyeball = true;
-				}
-				if (theballno != lnz->iris1ballno && theballno != lnz->iris2ballno) {
-					if (lnz->omissions[theballno] == false) {
-						auto ballsize = coords->ballsize[theballno];
-						if (0 < ballsize && lnz->bodyareas[theballno] != 14) {
-							if (ballstate->doclip && !clipped && coords->posrotinfo[theballno].z < ballstate->someclipinfo + ballstate->someclipinfo2) {
-								clipped = true;
-								xballz->Clip(*ballstate, *bounds, localdrawport, *drawport);
-							}
-							auto localpoint2 = XTPoint<int>{
-								coords->posrotinfo[theballno].x + boundspoint.x,
-								coords->posrotinfo[theballno].y + boundspoint.y
-							};
-							circlerenderblock.rect.x1 = localpoint2.x - ballsize;
-							circlerenderblock.rect.x2 = localpoint2.x + ballsize;
-							circlerenderblock.rect.y1 = localpoint2.y - ballsize;
-							circlerenderblock.rect.y2 = localpoint2.y + ballsize;
-							if (0 < lnz->linezinfo2[theballno].start) {
-								xballz->DrawAllLines(drawport, ballstate, coords, (pfarray<bool, 512>&)pfar, theballno, boundspoint);
-							}
-							int eyesize = ballstate->eyeballsize;
-							if (eyesize != 0 && isEyeball) {
-								circlerenderblock.rect.x1 -= eyesize;
-								circlerenderblock.rect.y1 -= eyesize;
-								circlerenderblock.rect.x2 += eyesize;
-								circlerenderblock.rect.y2 += eyesize;
-							}
-							circlerenderblock.outlinetype = lnz->outlinearray[theballno];
-							int colorindex = lnz->colorindexarray[theballno];
-							if (!isEyeball) {
-								if (9 < colorindex && colorindex < 150) {
-									signed int colorindexmiddle = (colorindex - 10) / 10;
-									int zscale = colorindex + xballz->zscale[theballno];
-									int min = (colorindexmiddle * 5 + 5) * 2;
-									int max = colorindexmiddle * 10 + 19;
-									int actualcolor = min(max, max(zscale, min));
-									colorindex = actualcolor;
+				if (theballno < xballz->numballz || 0 < this->addballarray[theballno - xballz->numballz]) {
+					bool isEyeball = false;
+					if (theballno == lnz->eye1ballno || theballno == lnz->eye2ballno) {
+						isEyeball = true;
+					}
+					if (theballno != lnz->iris1ballno && theballno != lnz->iris2ballno) {
+						if (lnz->omissions[theballno] == false) {
+							auto ballsize = coords->ballsize[theballno];
+							if (0 < ballsize && lnz->bodyareas[theballno] != 14) {
+								if (ballstate->doclip && !clipped && coords->posrotinfo[theballno].z < ballstate->someclipinfo + ballstate->someclipinfo2) {
+									clipped = true;
+									xballz->Clip(*ballstate, *bounds, localdrawport, *drawport);
 								}
-							}
-							circlerenderblock.colorindex = colorindex;
-							circlerenderblock.outlinecolor = lnz->outlinecolorarray[theballno];
-							circlerenderblock.fuzz = lnz->fuzz[theballno] + lnz->fuzzoverride[theballno];
-							xballz->SetBallTextureInfo(circlerenderblock, *ballstate, coords->posrotinfo, theballno);
-							auto disabletextures = g_ShlGlobals->vars[4];
-							if (disabletextures) {
-								circlerenderblock.textureinfo1 = 0;
-							}
-							auto result = drawport->XFillCircleEx(&circlerenderblock);
-							if (result) {
-								if (0 < lnz->somestruct[theballno * 5 + 570]) {
-									xballz->DrawPaintBallz(*drawport, theballno, circlerenderblock, *ballstate, coords->posrotinfo);
+								auto localpoint2 = XTPoint<int>{
+									coords->posrotinfo[theballno].x + boundspoint.x,
+									coords->posrotinfo[theballno].y + boundspoint.y
+								};
+								circlerenderblock.rect.x1 = localpoint2.x - ballsize;
+								circlerenderblock.rect.x2 = localpoint2.x + ballsize;
+								circlerenderblock.rect.y1 = localpoint2.y - ballsize;
+								circlerenderblock.rect.y2 = localpoint2.y + ballsize;
+								if (lnz->linezinfo2[theballno].start > 0) {
+									xballz->DrawAllLines(drawport, ballstate, coords, (pfarray<bool, 512>&)linerenderedarray, theballno, boundspoint);
 								}
-								if (isEyeball) {
-									//DrawEyeball(drawport, coords, ballstate, theballno, circlerenderblock, ballsize, localpoint2);
-									patch::DrawEyeball(xballz, drawport, (BallFrameEx*)coords, ballstate, theballno, circlerenderblock, ballsize, localpoint2);
+								int eyesize = ballstate->eyeballsize;
+								if (eyesize != 0 && isEyeball) {
+									circlerenderblock.rect.x1 -= eyesize;
+									circlerenderblock.rect.y1 -= eyesize;
+									circlerenderblock.rect.x2 += eyesize;
+									circlerenderblock.rect.y2 += eyesize;
 								}
-								if (0 < lnz->somestruct[theballno * 3 + 16437]) {
-									xballz->DrawAllWhiskers(drawport, *ballstate, coords, theballno, boundspoint);
+								circlerenderblock.outlinetype = lnz->outlinearray[theballno];
+								int colorindex = lnz->colorindexarray[theballno];
+								if (!isEyeball) {
+									if (9 < colorindex && colorindex < 150) {
+										signed int colorindexmiddle = (colorindex - 10) / 10;
+										int zscale = colorindex + xballz->zscale[theballno];
+										int min = (colorindexmiddle * 5 + 5) * 2;
+										int max = colorindexmiddle * 10 + 19;
+										int actualcolor = min(max, max(zscale, min));
+										colorindex = actualcolor;
+									}
 								}
-							}
-							xballz->renderedarray[theballno] = true;
-							XSprite* someptr = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
-							if (theballno < ballstate->unknownptr[1] && someptr != 0) {
-								someptr->DrawStacked(drawport, (EStackDraw)0);
-							}
-							if (lnz->linezinfo[theballno].option2 || 0 < lnz->linezinfo2[theballno].start) {
-								xballz->DrawAllLines(drawport, ballstate, coords, (pfarray<bool, 512>&)pfar, theballno, boundspoint);
+								circlerenderblock.colorindex = colorindex;
+								circlerenderblock.outlinecolor = lnz->outlinecolorarray[theballno];
+								circlerenderblock.fuzz = lnz->fuzz[theballno] + lnz->fuzzoverride[theballno];
+								xballz->SetBallTextureInfo(circlerenderblock, *ballstate, coords->posrotinfo, theballno);
+								auto disabletextures = g_ShlGlobals->vars[4];
+								if (disabletextures) {
+									circlerenderblock.textureinfo1 = 0;
+								}
+								auto result = drawport->XFillCircleEx(&circlerenderblock);
+								if (result) {
+									if (0 < (&lnz->somestruct)[theballno * 5 + 570]) {
+										xballz->DrawPaintBallz(*drawport, theballno, circlerenderblock, *ballstate, coords->posrotinfo);
+									}
+									if (isEyeball) {
+										//DrawEyeball(drawport, coords, ballstate, theballno, circlerenderblock, ballsize, localpoint2);
+										patch::DrawEyeball(xballz, drawport, coords, ballstate, theballno, circlerenderblock, ballsize, localpoint2);
+									}
+									if ((&lnz->somestruct)[theballno * 3 + 16437] > 0) {
+										xballz->DrawAllWhiskers(drawport, *ballstate, coords, theballno, boundspoint);
+									}
+								}
+								xballz->renderedarray[theballno] = true;
+								XSprite* othersprite = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
+								if (theballno < ballstate->unknownptr[1] && othersprite != 0) {
+									othersprite->DrawStacked(drawport, (EStackDraw)0);
+								}
+								if (lnz->linezinfo2[theballno].option2 != 0 && lnz->linezinfo2[theballno].start > 0) {
+									xballz->DrawAllLines(drawport, ballstate, coords, (pfarray<bool, 512>&)linerenderedarray, theballno, boundspoint);
+								}
 							}
 						}
-					}
-					else {
-						XSprite* othersprite = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
-						if (theballno < ballstate->unknownptr[1] && othersprite != 0) {
-							othersprite->DrawStacked(drawport, (EStackDraw)0);
+						else {
+							XSprite* othersprite = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
+							if (theballno < ballstate->unknownptr[1] && othersprite != 0) {
+								othersprite->DrawStacked(drawport, (EStackDraw)0);
+							}
 						}
 					}
 				}
