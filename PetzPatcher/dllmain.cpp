@@ -445,9 +445,11 @@ void XBallz::DisplayBallzFrame(XDrawPort* drawport, XTRect<> const* bounds, Ball
 							}
 						}
 						else {
-							XSprite* othersprite = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
-							if (theballno < ballstate->unknownptr[1] && othersprite != 0) {
-								othersprite->DrawStacked(drawport, (EStackDraw)0);
+							if (theballno < ballstate->unknownptr[1]) {
+								XSprite* othersprite = *(XSprite**)(*ballstate->unknownptr + 12 + theballno * 16);
+								if (othersprite != 0) {
+									othersprite->DrawStacked(drawport, (EStackDraw)0);
+								}
 							}
 						}
 					}
